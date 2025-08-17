@@ -81,19 +81,8 @@ class CBLoss(nn.Module):
         Returns:
             Tensor: Target loss, concept loss, and total loss.
         """
-
-        concepts_loss = 0
-
         assert torch.all((concepts_true == 0) | (concepts_true == 1))
-
-        for concept_idx in range(concepts_true.shape[1]):
-            c_loss = F.binary_cross_entropy(
-                concepts_pred_probs[:, concept_idx],
-                concepts_true[:, concept_idx].float(),
-                reduction=self.reduction,
-            )
-            concepts_loss += c_loss
-        concepts_loss = self.alpha * concepts_loss
+        concepts_loss = self.compute_concept_loss(concepts_true, concepts_pred_probs)
 
         if self.num_classes == 2:
             # Logits to probs
@@ -110,6 +99,19 @@ class CBLoss(nn.Module):
 
         return target_loss, concepts_loss, total_loss
 
+
+    def compute_concept_loss(self, concepts_true, concepts_pred_probs):
+        concepts_true = concepts_true.float() # [B, C]    
+        concepts_loss = F.binary_cross_entropy(
+            concepts_pred_probs, concepts_true , reduction='none'
+        ).double() #  [B, C]
+    
+        if self.reduction == 'mean':
+            concepts_loss = concepts_loss.mean(dim=0).sum()
+        elif self.reduction == 'sum':
+            concepts_loss = concepts_loss.sum(dim=0).sum()
+    
+        return (self.alpha * concepts_loss)
 
 class SCBLoss(nn.Module):
     """
