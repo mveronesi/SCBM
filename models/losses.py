@@ -104,7 +104,7 @@ class CBLoss(nn.Module):
         concepts_true = concepts_true.float() # [B, C]    
         concepts_loss = F.binary_cross_entropy(
             concepts_pred_probs, concepts_true , reduction='none'
-        ).double() #  [B, C]
+        ) #  [B, C]
     
         if self.reduction == 'mean':
             concepts_loss = concepts_loss.mean(dim=0).sum()
