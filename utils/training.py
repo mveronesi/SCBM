@@ -517,27 +517,26 @@ class Custom_Metrics(Metric):
             self.prec_loss += prec_loss * n_samples
 
     def compute(self, validation=False, config=None):
-        y_true_tensor = torch.cat(self.y_true, dim=0).cpu()
-        c_true_tensor = torch.cat(self.c_true, dim=0).cpu()
-        c_pred_probs_tensor = torch.cat(self.c_pred_probs, dim=0).cpu()
-        y_pred_logits_tensor = torch.cat(self.y_pred_logits, dim=0).cpu()
-        #c_true_tensor = c_true_tensor.numpy()
-        c_pred_probs_tensor = c_pred_probs_tensor.numpy()
-        c_pred = c_pred_probs_tensor > 0.5
-        if y_pred_logits_tensor.size(1) == 1:
-            y_pred_probs = nn.Sigmoid()(y_pred_logits_tensor.squeeze())
+        y_true = torch.cat(self.y_true, dim=0).cpu()
+        c_true = torch.cat(self.c_true, dim=0).cpu()
+        c_pred_probs = torch.cat(self.c_pred_probs, dim=0).cpu()
+        y_pred_logits = torch.cat(self.y_pred_logits, dim=0).cpu()
+        c_pred_probs = c_pred_probs.numpy()
+        c_pred = c_pred_probs > 0.5
+        if y_pred_logits.size(1) == 1:
+            y_pred_probs = nn.Sigmoid()(y_pred_logits.squeeze())
             y_pred = y_pred_probs > 0.5
         else:
-            y_pred_probs = nn.Softmax(dim=1)(y_pred_logits_tensor)
-            y_pred = y_pred_logits_tensor.argmax(dim=-1)
+            y_pred_probs = nn.Softmax(dim=1)(y_pred_logits)
+            y_pred = y_pred_logits.argmax(dim=-1)
 
-        target_acc = (y_true_tensor == y_pred).sum() / self.n_samples
-        concept_acc = (c_true_tensor == c_pred).sum() / (self.n_samples * self.n_concepts)
+        target_acc = (y_true == y_pred).sum() / self.n_samples
+        concept_acc = (c_true == c_pred).sum() / (self.n_samples * self.n_concepts)
         complete_concept_acc = (
-            (c_true_tensor == c_pred).sum(1) == self.n_concepts
+            (c_true == c_pred).sum(1) == self.n_concepts
         ).sum() / self.n_samples
-        target_jaccard = jaccard_score(y_true_tensor, y_pred, average="micro")
-        concept_jaccard = jaccard_score(c_true_tensor, c_pred, average="micro")
+        target_jaccard = jaccard_score(y_true, y_pred, average="micro")
+        concept_jaccard = jaccard_score(c_true, c_pred, average="micro")
         metrics = dict(
             {
                 "target_loss": self.target_loss / self.n_samples,
@@ -556,22 +555,22 @@ class Custom_Metrics(Metric):
             metrics = metrics | {"covariance_norm": self.cov_norm / self.n_samples}
 
         if validation is True:
-            c_pred_probs = []
+            c_pred_probs_list = []
             for j in range(self.n_concepts):
-                c_pred_probs.append(
+                c_pred_probs_list.append(
                     np.hstack(
                         (
-                            np.expand_dims(1 - c_pred_probs_tensor[:, j], 1),
-                            np.expand_dims(c_pred_probs_tensor[:, j], 1),
+                            np.expand_dims(1 - c_pred_probs[:, j], 1),
+                            np.expand_dims(c_pred_probs[:, j], 1),
                         )
                     )
                 )
 
             y_metrics = calc_target_metrics(
-                y_true_tensor.numpy(), y_pred_probs.numpy(), config.data
+                y_true.numpy(), y_pred_probs.numpy(), config.data
             )
             c_metrics, _ = calc_concept_metrics(
-                c_true_tensor.numpy(), c_pred_probs, config.data
+                c_true.numpy(), c_pred_probs_list, config.data
             )
             metrics = (
                 metrics

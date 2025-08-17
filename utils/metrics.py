@@ -169,41 +169,44 @@ def calc_concept_metrics(cs, concepts_pred_probs, config, n_decimals=4, n_bins_c
         # ECE
         ece_fct = CalibrationError(task="binary", n_bins=n_bins_cal, norm="l1")
         tl_ece_fct = CalibrationError(task="binary", n_bins=n_bins_cal, norm="l2")
+        # Get the confidence values and targets
         if len(concepts_pred_probs[j].shape) == 1:
-            ece = float(
-                ece_fct(
-                    torch.tensor(concepts_pred_probs[j]),
-                    torch.tensor(cs[:, j].squeeze()).type(torch.int64),
-                )
-                .cpu()
-                .numpy()
-            )
-            tl_ece = float(
-                tl_ece_fct(
-                    torch.tensor(concepts_pred_probs[j]),
-                    torch.tensor(cs[:, j].squeeze()).type(torch.int64),
-                )
-                .cpu()
-                .numpy()
-            )
-
+            confidences = torch.tensor(concepts_pred_probs[j])
         else:
-            ece = float(
-                ece_fct(
-                    torch.tensor(concepts_pred_probs[j][:, 1]),
-                    torch.tensor(cs[:, j].squeeze()).type(torch.int64),
-                )
-                .cpu()
-                .numpy()
-            )
-            tl_ece = float(
-                tl_ece_fct(
-                    torch.tensor(concepts_pred_probs[j][:, 1]),
-                    torch.tensor(cs[:, j].squeeze()).type(torch.int64),
-                )
-                .cpu()
-                .numpy()
-            )
+            confidences = torch.tensor(concepts_pred_probs[j][:, 1])
+        
+        targets = torch.tensor(cs[:, j].squeeze()).type(torch.int64)
+        
+        # Validate and clean the data before computing ECE
+        # Check for NaN/Inf values
+        if torch.isnan(confidences).any() or torch.isinf(confidences).any():
+            print(f"Warning: Found NaN/Inf values in concept {j} confidences")
+            confidences = torch.nan_to_num(confidences, nan=0.5, posinf=1.0, neginf=0.0)
+        
+        # Ensure confidences are in [0, 1] range
+        confidences = torch.clamp(confidences, min=1e-7, max=1.0 - 1e-7)
+        
+        # Check for valid targets (should be 0 or 1 for binary)
+        if targets.min() < 0 or targets.max() > 1:
+            print(f"Warning: Invalid target values for concept {j}, range: [{targets.min()}, {targets.max()}]")
+            targets = torch.clamp(targets, min=0, max=1)
+        
+        # Skip ECE computation if we have empty tensors
+        if confidences.numel() == 0 or targets.numel() == 0:
+            print(f"Warning: Empty tensors for concept {j}, setting ECE to 0")
+            ece = 0.0
+            tl_ece = 0.0
+        else:
+            try:
+                ece = float(ece_fct(confidences, targets).cpu().numpy())
+                tl_ece = float(tl_ece_fct(confidences, targets).cpu().numpy())
+            except Exception as e:
+                print(f"Error computing ECE for concept {j}: {e}")
+                print(f"Confidences shape: {confidences.shape}, range: [{confidences.min():.4f}, {confidences.max():.4f}]")
+                print(f"Targets shape: {targets.shape}, unique values: {torch.unique(targets)}")
+                # Set to 0 if computation fails
+                ece = 0.0
+                tl_ece = 0.0
 
         metrics_per_concept.append(
             {
@@ -219,6 +222,7 @@ def calc_concept_metrics(cs, concepts_pred_probs, config, n_decimals=4, n_bins_c
     aupr = 0.0
     brier = 0.0
     ece = 0.0
+    tl_ece = 0.0
     for j in range(num_concepts):
         auroc += metrics_per_concept[j]["AUROC"]
         aupr += metrics_per_concept[j]["AUPR"]

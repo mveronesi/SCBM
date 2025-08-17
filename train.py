@@ -288,6 +288,10 @@ def train(config):
         concept_names_graph=concept_names_graph,
     )
 
+    if config.train_only:
+        wandb.finish(quiet=True)
+        return None
+
     # Intervention curves
     print("\nPERFORMING INTERVENTIONS:\n")
     intervene(
