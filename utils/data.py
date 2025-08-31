@@ -87,6 +87,7 @@ def get_data(config_base, config, gen):
         pin_memory=True,
         generator=gen,
         drop_last=True,
+        persistent_workers=True,
     )
     val_loader = DataLoader(
         validset,
@@ -95,6 +96,7 @@ def get_data(config_base, config, gen):
         num_workers=config.workers,
         pin_memory=True,
         generator=gen,
+        persistent_workers=True,
     )
     test_loader = DataLoader(
         testset,
