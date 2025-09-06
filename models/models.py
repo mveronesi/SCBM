@@ -241,25 +241,8 @@ class SCBM(nn.Module):
             else:
                 c_mcmc = mcmc_relaxed
 
-        # MCMC loop for predicting label
-        y_pred_probs_i = 0
-        for i in range(self.num_monte_carlo):
-            if self.concept_learning == "hard":
-                c_i = c_mcmc[:, :, i]
-            elif self.concept_learning == "soft":
-                c_i = c_mcmc_logit[:, :, i]
-            else:
-                raise NotImplementedError
-            y_pred_logits_i = self.head(c_i)
-            if self.pred_dim == 1:
-                y_pred_probs_i += torch.sigmoid(y_pred_logits_i)
-            else:
-                y_pred_probs_i += torch.softmax(y_pred_logits_i, dim=1)
-        y_pred_probs = y_pred_probs_i / self.num_monte_carlo
-        if self.pred_dim == 1:
-            y_pred_logits = torch.logit(y_pred_probs, eps=1e-6)
-        else:
-            y_pred_logits = torch.log(y_pred_probs + 1e-6)
+        y_pred_logits = self.compute_y_pred_logits(c_mcmc, c_mcmc_logit)
+
 
         # Return concept mu for interventions
         if return_full:
@@ -309,6 +292,28 @@ class SCBM(nn.Module):
             self.sigma_concepts.apply(freeze_module)
         else:
             self.sigma_concepts.requires_grad = False
+
+    def compute_y_pred_logits(self, c_mcmc, c_mcmc_logit):
+            # MCMC loop for predicting label
+            y_pred_probs_i = 0
+            for i in range(self.num_monte_carlo):
+                if self.concept_learning == "hard":
+                    c_i = c_mcmc[:, :, i]
+                elif self.concept_learning == "soft":
+                    c_i = c_mcmc_logit[:, :, i]
+                else:
+                    raise NotImplementedError
+                y_pred_logits_i = self.head(c_i)
+                if self.pred_dim == 1:
+                    y_pred_probs_i += torch.sigmoid(y_pred_logits_i)
+                else:
+                    y_pred_probs_i += torch.softmax(y_pred_logits_i, dim=1)
+            y_pred_probs = y_pred_probs_i / self.num_monte_carlo
+            if self.pred_dim == 1:
+                y_pred_logits = torch.logit(y_pred_probs, eps=1e-6)
+            else:
+                y_pred_logits = torch.log(y_pred_probs + 1e-6)
+            return y_pred_logits
 
 
 class CBM(nn.Module):
