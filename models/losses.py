@@ -2,6 +2,8 @@
 Utility methods for constructing loss functions
 """
 
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -131,9 +133,15 @@ class SCBLoss(nn.Module):
         """
         super(SCBLoss, self).__init__()
         self.num_classes = num_classes
-        self.alpha = alpha if config.training_mode == "joint" else 1.0
         self.reg_precision = config.reg_precision
         self.reg_weight = config.reg_weight
+
+        alpha = alpha if config.training_mode == "joint" else 1.0
+
+        # Register these as buffer so they move with .to(device) calls
+        self.register_buffer('log_num_mc', 
+                           torch.tensor(math.log(config.num_monte_carlo)))
+        self.register_buffer('alpha_tensor', torch.tensor(alpha))
 
     def forward(
         self,
@@ -210,4 +218,5 @@ class SCBLoss(nn.Module):
         mcmc_loss = -torch.logsumexp(
             intermediate_concepts_loss, dim=1
         )  # [B], logsumexp for numerical stability due to shift invariance
-        return self.alpha * torch.mean(mcmc_loss)
+        # This is bounded by - log_num_mc adding log_num_mc moves to bound to 0.
+        return self.alpha_tensor * (torch.mean(mcmc_loss) + self.log_num_mc)
