@@ -136,12 +136,8 @@ class SCBLoss(nn.Module):
         self.reg_precision = config.reg_precision
         self.reg_weight = config.reg_weight
 
-        alpha = alpha if config.training_mode == "joint" else 1.0
-
-        # Register these as buffer so they move with .to(device) calls
-        self.register_buffer('log_num_mc', 
-                           torch.tensor(math.log(config.num_monte_carlo)))
-        self.register_buffer('alpha_tensor', torch.tensor(alpha))
+        self.log_num_mc = math.log(config.num_monte_carlo)
+        self.alpha = alpha if config.training_mode == "joint" else 1.0
 
     def forward(
         self,
@@ -220,4 +216,4 @@ class SCBLoss(nn.Module):
         )  # [B], logsumexp for numerical stability due to shift invariance
         # The concept loss computation is bounded by - log_num_mc adding log_num_mc moves
         # bound to 0. Preventing negative losses.
-        return self.alpha_tensor * (torch.mean(mcmc_loss) + self.log_num_mc)
+        return self.alpha * (torch.mean(mcmc_loss) + self.log_num_mc)
