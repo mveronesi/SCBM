@@ -219,5 +219,5 @@ class SCBLoss(nn.Module):
             intermediate_concepts_loss, dim=1
         )  # [B], logsumexp for numerical stability due to shift invariance
         # The concept loss computation is bounded by - log_num_mc adding log_num_mc moves
-        #         # bound to 0. Preventing negative losses.
+        # bound to 0. Preventing negative losses.
         return self.alpha_tensor * (torch.mean(mcmc_loss) + self.log_num_mc)
