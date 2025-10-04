@@ -82,6 +82,11 @@ class SCBM(nn.Module):
             self.num_epochs = config_model.t_epochs
         self.cov_type = config_model.cov_type
 
+        self.init_temp = 1.0
+        self.final_temp = 0.5
+        self.temp_decay_rate = (math.log(self.final_temp) - math.log(self.init_temp)) / float(self.num_epochs)
+        
+
         # Architectures
         # Encoder h(.)
         if self.encoder_arch == "FCNN":
@@ -229,7 +234,7 @@ class SCBM(nn.Module):
             c_mcmc = c_true.unsqueeze(-1).repeat(1, 1, self.num_monte_carlo).float()
         else:
             # Backpropagation necessary
-            curr_temp = self.compute_temperature(epoch, device=c_mcmc_prob.device)
+            curr_temp = self.compute_temperature(epoch)
             dist = RelaxedBernoulli(temperature=curr_temp, probs=c_mcmc_prob)
 
             # Bernoulli relaxation
@@ -293,11 +298,8 @@ class SCBM(nn.Module):
 
         return y_pred_logits
 
-    def compute_temperature(self, epoch, device):
-        final_temp = torch.tensor([0.5], device=device)
-        init_temp = torch.tensor([1.0], device=device)
-        rate = (math.log(final_temp) - math.log(init_temp)) / float(self.num_epochs)
-        curr_temp = max(init_temp * math.exp(rate * epoch), final_temp)
+    def compute_temperature(self, epoch):
+        curr_temp = max(self.init_temp * math.exp(self.temp_decay_rate * epoch), self.final_temp)
         self.curr_temp = curr_temp
         return curr_temp
 
