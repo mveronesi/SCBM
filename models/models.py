@@ -240,32 +240,35 @@ class SCBM(nn.Module):
                 c_mcmc = mcmc_hard - mcmc_relaxed.detach() + mcmc_relaxed
             else:
                 c_mcmc = mcmc_relaxed
-
-        # MCMC loop for predicting label
-        y_pred_probs_i = 0
-        for i in range(self.num_monte_carlo):
-            if self.concept_learning == "hard":
-                c_i = c_mcmc[:, :, i]
-            elif self.concept_learning == "soft":
-                c_i = c_mcmc_logit[:, :, i]
-            else:
-                raise NotImplementedError
-            y_pred_logits_i = self.head(c_i)
-            if self.pred_dim == 1:
-                y_pred_probs_i += torch.sigmoid(y_pred_logits_i)
-            else:
-                y_pred_probs_i += torch.softmax(y_pred_logits_i, dim=1)
-        y_pred_probs = y_pred_probs_i / self.num_monte_carlo
-        if self.pred_dim == 1:
-            y_pred_logits = torch.logit(y_pred_probs, eps=1e-6)
-        else:
-            y_pred_logits = torch.log(y_pred_probs + 1e-6)
+                
+        y_pred_logits = self.compute_y_pred_logits(c_mcmc, c_mcmc_logit)
 
         # Return concept mu for interventions
         if return_full:
             return c_mcmc_prob, c_mu, c_triang_cov, y_pred_logits
         else:
             return c_mcmc_prob, c_triang_cov, y_pred_logits
+
+    def compute_y_pred_logits(self, c_mcmc_probs, c_mcmc_logits):
+        # Pick the concept tensor: [B, C, M]
+        x = c_mcmc_probs if self.concept_learning == "hard" else c_mcmc_logits
+        B, C, M = x.shape
+
+        # Run the head over all M samples at once: reshape to [B*M, C]
+        x_flat = x.permute(0, 2, 1).reshape(B * M, C)        # [B*M, C]
+        y_logits_flat = self.head(x_flat)                     # [B*M, K] or [B*M, 1]
+
+        if self.pred_dim == 1:
+            # Binary: average Bernoulli probs then convert back to logits
+            y_probs = torch.sigmoid(y_logits_flat).view(B, M, 1).mean(dim=1)  # [B, 1]
+            y_pred_logits = torch.logit(y_probs, eps=1e-6)                    # [B, 1]
+            return y_pred_logits
+        else:
+            # Multiclass: compute log(mean softmax) in a numerically stable way:
+            # log(mean_i p_i) == logsumexp(log p_i) - log(M), where log p_i = log_softmax(logits_i)
+            y_log_probs = F.log_softmax(y_logits_flat, dim=-1).view(B, M, self.pred_dim)  # [B, M, K]
+            y_pred_log_probs = torch.logsumexp(y_log_probs, dim=1) - math.log(M)          # [B, K]
+            return y_pred_log_probs
 
     def intervene(self, c_mcmc_probs, c_mcmc_logits):
         y_pred_probs_i = 0
