@@ -521,7 +521,7 @@ class Custom_Metrics(Metric):
         c_true = torch.cat(self.c_true, dim=0).cpu()
         c_pred_probs = torch.cat(self.c_pred_probs, dim=0).cpu()
         y_pred_logits = torch.cat(self.y_pred_logits, dim=0).cpu()
-        c_pred_probs = c_pred_probs.numpy()
+        # c_pred_probs = c_pred_probs.numpy()
         c_pred = c_pred_probs > 0.5
         if y_pred_logits.size(1) == 1:
             y_pred_probs = nn.Sigmoid()(y_pred_logits.squeeze())
