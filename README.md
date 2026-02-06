@@ -28,6 +28,9 @@ We provide a script in the `./scripts/` directory to run experiments on a cluste
 - **Amortized Variant on Synthetic Dataset**:  
   `python train.py +model=SCBM +data=synthetic model.encoder_arch='FCNN' model.j_epochs=150`  
 
+## Community Contributions
+Special thanks go to Max Buckley for improving the codebase's efficiency. See [here](https://medium.com/@maxwbuckley/making-stochastic-concept-bottleneck-models-go-brrrr-with-birds-74dacba4975f) for more details.
+
 ## Citing
 To cite SCBM please use the following BibTEX entry:
 
