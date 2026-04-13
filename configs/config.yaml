@@ -8,5 +8,5 @@ train_only: False # Whether to train the model only and exit before performing i
 
 logging:
   project: 'SCBM' # Name of the wandb project
-  mode: 'disabled' # Whether to log to wandb [online, offline, disabled]
-  entity: "your_entity" # Your wandb entity
+  mode: 'online' # Whether to log to wandb [online, offline, disabled]
+  entity: "michele-veronesi-politecnico-di-torino" # Your wandb entity

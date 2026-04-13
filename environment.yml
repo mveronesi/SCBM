@@ -20,6 +20,7 @@ dependencies:
   - plotly
   - anaconda::seaborn
   - transformers=4.37.2
+  - setuptools<82
   - pip
   - pip:
     - pytorch-minimize
