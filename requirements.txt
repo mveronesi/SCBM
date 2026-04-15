@@ -1,0 +1,13 @@
+torch
+torchvision
+torchmetrics==0.11.4
+wandb
+scikit-learn
+tqdm
+matplotlib
+plotly
+seaborn
+transformers==4.37.2
+setuptools<82
+hydra-core
+pytorch-minimize
